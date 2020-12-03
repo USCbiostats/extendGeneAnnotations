@@ -36,25 +36,6 @@ updateOnt = function(z, r = 'none') {
     ontFor <- fromJSON(file = "ont.json")
     ontRev <- fromJSON(file = "ontRev.json")
 
-    #
-    # for (i in 1:length(ontAdd)) {
-    #     names(ontAdd[[i]]) <- as.integer(gsub("^GO[:]0+", "", names(ontAdd[[i]])))
-    #     ontAdd[[i]] <- lapply(ontAdd[[i]], function(o) as.integer(gsub("^GO[:]0+", "", o)))
-    # }
-    #
-    # for (i in 1:length(ontFor)) {
-    #     names(ontFor[[i]]) <- as.integer(gsub("^GO[:]0+", "", names(ontFor[[i]])))
-    #     ontFor[[i]] <- lapply(ontFor[[i]], function(o) as.integer(gsub("^GO[:]0+", "", o)))
-    # }
-    #
-    # for (i in 1:length(ontRev)) {
-    #     names(ontRev[[i]]) <- as.integer(gsub("^GO[:]0+", "", names(ontRev[[i]])))
-    #     ontRev[[i]] <- lapply(ontRev[[i]], function(o) as.integer(gsub("^GO[:]0+", "", o)))
-    # }
-    #
-    # z <- as.integer(gsub("^GO[:]0+", "", z))
-
-
    #ensure input is right type
     if(class(z) != 'matrix') {
         print('input to updateOnt not Matrix')
@@ -143,6 +124,22 @@ updateOnt = function(z, r = 'none') {
         print('Too few valid columns for updateOnt function')
         return(0)
     }
+
+# for (i in 1:length(ontAdd)) {
+#     names(ontAdd[[i]]) <- as.integer(gsub("^GO[:]0+", "", names(ontAdd[[i]])))
+#     ontAdd[[i]] <- lapply(ontAdd[[i]], function(o) as.integer(gsub("^GO[:]0+", "", o)))
+# }
+#
+# for (i in 1:length(ontFor)) {
+#     names(ontFor[[i]]) <- as.integer(gsub("^GO[:]0+", "", names(ontFor[[i]])))
+#     ontFor[[i]] <- lapply(ontFor[[i]], function(o) as.integer(gsub("^GO[:]0+", "", o)))
+# }
+#
+# for (i in 1:length(ontRev)) {
+#     names(ontRev[[i]]) <- as.integer(gsub("^GO[:]0+", "", names(ontRev[[i]])))
+#     ontRev[[i]] <- lapply(ontRev[[i]], function(o) as.integer(gsub("^GO[:]0+", "", o)))
+# }
+# colnames(z) <- as.integer(gsub("^GO[:]0+", "", colnames(z)))
 
     #create matrix of zeroes to store possible update locations
     m = matrix(0L,  l, l)
@@ -248,7 +245,7 @@ traverseOnt = function(startAnnot,dir,r = c(), ont, ontAdd){
     }
 
     stack = rep("GO:0000000",maxRes)  #not really a stack, more or a queue actually I think
-    # stack <- vector("integer", length)
+# stack <- vector("integer", maxRes)
     indexCurr = 1
     indexLast = 0
     rl = length(r)
@@ -376,8 +373,8 @@ results = updateOnt(z1   )
 print(results)
 }
 
-
-testOnt()
+profvis::profvis({testOnt()})
+# testOnt()
 
 if (FALSE){
     z1 <- structure(c(0L, 1L, 9L, 0L, 9L, 9L, 9L, 9L, 1L, 1L, 1, 1, 1, 9, 9, 1, 0, 0, 0, 0, 0, 9L, 0L,
