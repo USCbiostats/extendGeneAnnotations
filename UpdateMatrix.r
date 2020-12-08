@@ -1,8 +1,6 @@
 
 #Code key for relationships
-#Relationships names numbeer of instance in data set (~sept 2020) and tags
-
-#--disjoint_from 30 d   NOT currently valid
+#Relationships names numbeer of instance in data set (~sept 2020) and tags 
 
 #relationship: 
 #--part_of 8517 rp 
@@ -24,26 +22,30 @@
 #--occurs_in 195 io
 #--happens_during 10 id
 
-
-
+ 
 library(rjson) 
 
+ontAdd = fromJSON(file = 'r.json')
+ontFor = fromJSON(file = "ont.json") 
+ontRev = fromJSON(file = "ontRev.json")
 
 updateOnt = function(z,r = 'none') {
     #input z = matrix with column names as GO ids and rows as distinct annotated objects 
     #input r = array of relationships desired, empty array gives just is_a relations, 'all' gives all, otherwise use code key 
 
-    ontAdd = fromJSON(file = 'r.json')
-    ontFor <- fromJSON(file = "ont.json") 
+    #load needed jsons
 
-   #ensure input is right type
+
+   #ensure z input is valid 
     if(class(z) != 'matrix') {
         print('input to updateOnt not Matrix') 
         return(0)
     }  
+
+    #ensure r is of right form, covnert keywords to array 
     none = c('rp')
     mainfor = c('rp', 'rrp', 'rrn', 'rr' )
-    allFor = c('rp', 'rrp', 'rrn', 'rr', 'ro', 're', 'rh', 'rd', 'i', 'ir', 'ip', 'irp', 'irn', 'ih', 'io', 'id' ) #'d' )
+    allFor = c('rp', 'rrp', 'rrn', 'rr', 'ro', 're', 'rh', 'rd', 'i', 'ir', 'ip', 'irp', 'irn', 'ih', 'io', 'id' )  
     if(is.vector(r)){
         if ( r == 'main'){
             r = mainfor
@@ -64,13 +66,12 @@ updateOnt = function(z,r = 'none') {
         print('relationship array is not a vector in updateOnt function')
         return(0)
     }
-    #print(r)
-   #obs,alt,con,rep
+ 
 
     annots = colnames(z) #annotation names from columns
     l = length(annots)
  
-    #check for obsolete names in column list
+    #name sub jsons to check inputs for z 
     obsolete = ontAdd['obs'][[1]]
     obsnames = names(obsolete) #names of obsolete 
     consider = ontAdd['con'][[1]]
@@ -80,7 +81,7 @@ updateOnt = function(z,r = 'none') {
     altid = ontAdd['alt'][[1]]
     altnames = names(altid)
 
-
+ 
     #check if any of the annotation names in input matrix are obsolete, output replaced by and consider names if they are
     for(i in 1:l){  
         if(annots[i] %in% obsnames){
@@ -208,22 +209,17 @@ updateOnt = function(z,r = 'none') {
 
 #traverses provided json file passed in ont parameter and generates list of 
 traverseOnt = function(startAnnot,dir,r=c()){     
-    d = FALSE #flag for if disjoint is in set of relationships to test
-    ontAdd = fromJSON(file = 'r.json') #JSON of relationships
+     #ontAdd = fromJSON(file = 'r.json') #JSON of relationships
  
     if(dir == 1){
-        ont <- fromJSON(file = "ont.json") 
+        ont <- ontFor#fromJSON(file = "ont.json") 
         maxRes = 200 #initial number of is_a relationships to fill array with
         r = c(r,'alt','rep') #automatically do altid and replacedby
 
-        #disjoint is a special case and is handled seperately
-        if('d' %in% r) {
-            r = r[r != 'd']
-            d = TRUE 
-         }
+ 
 
     } else{
-        ont <- fromJSON(file = "ontRev.json")   
+        ont <- ontRev #fromJSON(file = "ontRev.json")   
         maxRes = 3000 
         r = c( 'alt','rep')
     }
@@ -233,7 +229,7 @@ traverseOnt = function(startAnnot,dir,r=c()){
     indexLast = 0 
     rl = length(r)
 
-
+    e <- new.env()
     #Assigns strings in r to nested JSON objects in ontAdd and adds initial relations in r for start annot
     for(j in 1:rl){
         assign(r[j],ontAdd[r[j]][[1]]) 
@@ -241,33 +237,38 @@ traverseOnt = function(startAnnot,dir,r=c()){
             for(k in 1:length(eval(parse(text = r[j]))[[startAnnot]])){  
                 indexLast = indexLast + 1
                 stack[indexLast] = eval(parse(text = r[j]))[[startAnnot]][k]
-
+                assign(stack[indexLast], 1,  envir = e)
             }
         }
     }  
      
 
     #adds the initial relationships to stack for the startannot
-    a = unlist(ont[startAnnot])
+    a =  ont[[startAnnot]]
     if(length(a) > 0){
         for(entry in 1:length(a)){
             indexLast = indexLast + 1
             x = a[entry]
             stack[indexLast] = x
+            assign(stack[indexLast], 1,  envir = e)
         } 
     }
 
     while(indexCurr <= indexLast){
-        a = unlist(ont[stack[indexCurr]])  
-
+        a =  ont[[stack[indexCurr]]]  
+            
         #a represents the list of objects that the current object being considered in stack has a is_a relationship to
         #we will thus add each of those to the stack (really more of a queue I think)
-        if(length(a) > 0){
+        if(  length(a) > 0){
             for(entry in 1:length(a)){  
-                if(!(a[entry] %in% stack)){
+                if(!(exists(a[entry], envir = e))){
                     indexLast = indexLast + 1
                     stack[indexLast] = a[entry]
+                    assign(stack[indexLast], 1,  envir = e) 
                 }
+                #else {
+                #    print(a[entry])
+                #}
             } 
         }
         
@@ -284,34 +285,8 @@ traverseOnt = function(startAnnot,dir,r=c()){
         
         indexCurr = indexCurr + 1
     }
-    stack = stack[1:indexLast] 
-
-    if(FALSE){#if(d == TRUE){   Paul noted this wasn't necessary seemingly
-        assign('d',ontAdd['d'][[1]])  
-        disjoint = rep(1,30)
-        disindex = 0
-
-        #checks each element in stack to see if it has a disjoint value, and adds all disjoint elements for that annotation using inner loop
-        for(i in 1:length(stack)) {
-            if(!is.null(eval(parse(text = 'd'))[[stack[i]]])){
-                for(j in 1:length(eval(parse(text = 'd'))[[stack[i]]])) {
-                    disindex = disindex + 1
-                    disjoint[disindex] = eval(parse(text = 'd'))[[stack[i]]][j]
-                }
-            }
-
-        }
-         #if we find a disjoint example, we will create 
-        dres = c() 
-        if(disindex > 0){  
-            for(i in 1:disindex){
-                q = traverseOnt(disjoint[i],0)
-                dres = c(dres,q) #this list can have duplicates 
-            }
-        }
-         stack = c(stack,dres) 
-    } 
-    #print(indexLast)
+    stack = stack[1:indexLast]  
+    #print(length(stack))
     return(stack)   
 } 
 
@@ -326,21 +301,17 @@ testOnt = function(){
  .Dim = c(4L,2L), 
  .Dimnames = list(c("1","2",'3','4'),c("GO:0000749",'GO:0071444' )))
    
- 
+ z2 =  structure(c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,9,9,9,9,9,9,9,9,9,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,9,9,9,9,9,9,9,9,9,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,9,9,9,9,9,9,9,9,9,0,0,0,1,1,1,9,9,9,0,0,0,1,1,1,9,9,9,0,0,0,1,1,1,9,9,9,0,0,0,1,1,1,9,9,9,0,0,0,1,1,1,9,9,9,0,0,0,1,1,1,9,9,9,0,0,0,1,1,1,9,9,9,0,0,0,1,1,1,9,9,9,0,0,0,1,1,1,9,9,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9 ),    
+ .Dim = c(81L,4L), 
+ .Dimnames = list(c("1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31","32","33","34","35","36","37","38","39","40","41","42","43","44","45","46","47","48","49","50","51","52","53","54","55","56","57","58","59","60","61","62","63","64","65","66","67","68","69","70","71","72","73","74","75","76","77","78","79","80","81"
+),
+ c("GO:0031982",'GO:0030135','GO:0002450','GO:0008150' )))
 
-print(z1)
-results = updateOnt(z1   )
-print(results)
+#print(z2)
+results = updateOnt(z2   )
+#print(results)
 }
  
  
-testOnt() 
-
-if (FALSE){
-    z1 <- structure(c(0L, 1L, 9L, 0L, 9L, 9L, 9L, 9L, 1L, 1L, 1, 1, 1, 9, 9, 1, 0, 0, 0, 0, 0, 9L, 0L,
-1L, 0L, 9L, 9L, 1L, 9L, 9L,1,1,0,0,1,9,9,1,0,9,1,9,1,1,0,9,0,1,9,9), 
-.Dim = c(10L, 5L), 
-.Dimnames = list( c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10"), c("GO2:0016765", "GO2:0003690", "GO:0003697",'GO:0003677','GO:0098847'
-))) 
-}
+####testOnt() 
  
