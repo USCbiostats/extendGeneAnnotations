@@ -296,10 +296,10 @@ z2 =  structure(c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,
 c("GO:0031982",'GO:0030135','GO:0002450','GO:0008150' )))
 
 #print(z2)
-results = updateOnt(z2   )
+results = updateOnt(z2)
 #print(results)
 }
  
  
-testOnt() 
+###testOnt() 
  
