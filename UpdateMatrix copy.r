@@ -25,14 +25,16 @@
  
 library(rjson) 
 
-#Initial loading of json files for ontology
-ontAdd = fromJSON(file = 'r.json') #additional relationships
-ontFor = fromJSON(file = "ont.json") #Ontology tree 
-ontRev = fromJSON(file = "ontRev.json") #Ontology tree in reverse direction
+ontAdd = fromJSON(file = 'r.json')
+ontFor = fromJSON(file = "ont.json") 
+ontRev = fromJSON(file = "ontRev.json")
 
 updateOnt = function(z,r = 'none') {
     #input z = matrix with column names as GO ids and rows as distinct annotated objects 
-    #input r = array of relationships desired, empty array gives just is_a relations, 'all' gives all, otherwise use code key  
+    #input r = array of relationships desired, empty array gives just is_a relations, 'all' gives all, otherwise use code key 
+
+    #load needed jsons
+
 
    #ensure z input is valid 
     if(class(z) != 'matrix') {
@@ -96,7 +98,11 @@ updateOnt = function(z,r = 'none') {
             }
         }
     }
-  
+
+
+
+ 
+
     #create skip list to ignore all columns that don't have names in the ontology file (or alt or replaced by names)       
     skip=rep(1,l)  
     skipind = 0
@@ -201,30 +207,28 @@ updateOnt = function(z,r = 'none') {
 
 
 
-#traverses json file based on dir (direction) to find annotations above/below it in ontology tree. 
+#traverses provided json file passed in ont parameter and generates list of 
 traverseOnt = function(startAnnot,dir,r=c()){     
-    #startAnnot : The initial annotation from matrix passed into updateOnt function
-    #dir : 1 if going up the tree, 0 (or other term) if going down the tree
-    #r : list of relationships from relationships list to check, these are only checked if dir = 1
-
-    #assign json to use based on dir
+     #ontAdd = fromJSON(file = 'r.json') #JSON of relationships
+ 
     if(dir == 1){
         ont <- ontFor#fromJSON(file = "ont.json") 
         maxRes = 200 #initial number of is_a relationships to fill array with
-        r = c(r,'alt','rep') #automatically do altid and replacedby 
+        r = c(r,'alt','rep') #automatically do altid and replacedby
+
+ 
+
     } else{
         ont <- ontRev #fromJSON(file = "ontRev.json")   
         maxRes = 3000 
         r = c( 'alt','rep')
     }
 
-    #create initial array to fill
     stack = rep("GO:0000000",maxRes)  #not really a stack, more or a queue actually I think  
     indexCurr = 1
     indexLast = 0 
     rl = length(r)
 
-    #hash table used to do loop checking
     e <- new.env()
     #Assigns strings in r to nested JSON objects in ontAdd and adds initial relations in r for start annot
     for(j in 1:rl){
@@ -250,19 +254,21 @@ traverseOnt = function(startAnnot,dir,r=c()){
         } 
     }
 
-    #Go through all items being added to stack, tracing up path of each node without adding duplicates 
     while(indexCurr <= indexLast){
         a =  ont[[stack[indexCurr]]]  
             
         #a represents the list of objects that the current object being considered in stack has a is_a relationship to
-        #we will thus add each of those to stack  
+        #we will thus add each of those to the stack (really more of a queue I think)
         if(  length(a) > 0){
             for(entry in 1:length(a)){  
                 if(!(exists(a[entry], envir = e))){
                     indexLast = indexLast + 1
                     stack[indexLast] = a[entry]
                     assign(stack[indexLast], 1,  envir = e) 
-                } 
+                }
+                #else {
+                #    print(a[entry])
+                #}
             } 
         }
         
@@ -280,20 +286,26 @@ traverseOnt = function(startAnnot,dir,r=c()){
         indexCurr = indexCurr + 1
     }
     stack = stack[1:indexLast]  
+    #print(length(stack))
     return(stack)   
 } 
 
 
 
 
-#test of function
+#simple test of function
 testOnt = function(){
+
  
+ z1 <- structure(c(9L,0 ,1L,1,1L,9,9,1L), 
+ .Dim = c(4L,2L), 
+ .Dimnames = list(c("1","2",'3','4'),c("GO:0000749",'GO:0071444' )))
    
-z2 =  structure(c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,9,9,9,9,9,9,9,9,9,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,9,9,9,9,9,9,9,9,9,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,9,9,9,9,9,9,9,9,9,0,0,0,1,1,1,9,9,9,0,0,0,1,1,1,9,9,9,0,0,0,1,1,1,9,9,9,0,0,0,1,1,1,9,9,9,0,0,0,1,1,1,9,9,9,0,0,0,1,1,1,9,9,9,0,0,0,1,1,1,9,9,9,0,0,0,1,1,1,9,9,9,0,0,0,1,1,1,9,9,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9 ),    
-.Dim = c(81L,4L), 
-.Dimnames = list(c("1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31","32","33","34","35","36","37","38","39","40","41","42","43","44","45","46","47","48","49","50","51","52","53","54","55","56","57","58","59","60","61","62","63","64","65","66","67","68","69","70","71","72","73","74","75","76","77","78","79","80","81" ),
-c("GO:0031982",'GO:0030135','GO:0002450','GO:0008150' )))
+ z2 =  structure(c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,9,9,9,9,9,9,9,9,9,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,9,9,9,9,9,9,9,9,9,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,9,9,9,9,9,9,9,9,9,0,0,0,1,1,1,9,9,9,0,0,0,1,1,1,9,9,9,0,0,0,1,1,1,9,9,9,0,0,0,1,1,1,9,9,9,0,0,0,1,1,1,9,9,9,0,0,0,1,1,1,9,9,9,0,0,0,1,1,1,9,9,9,0,0,0,1,1,1,9,9,9,0,0,0,1,1,1,9,9,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9,0,1,9 ),    
+ .Dim = c(81L,4L), 
+ .Dimnames = list(c("1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31","32","33","34","35","36","37","38","39","40","41","42","43","44","45","46","47","48","49","50","51","52","53","54","55","56","57","58","59","60","61","62","63","64","65","66","67","68","69","70","71","72","73","74","75","76","77","78","79","80","81"
+),
+ c("GO:0031982",'GO:0030135','GO:0002450','GO:0008150' )))
 
 #print(z2)
 results = updateOnt(z2   )
@@ -301,5 +313,5 @@ results = updateOnt(z2   )
 }
  
  
-testOnt() 
+####testOnt() 
  
